@@ -193,11 +193,15 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 
 		e = hit + vec4(normal, 0.0) * 0.001; // kicsit kitol.
 		//d.xyz = reflect(d.xyz, +normal);
-		d.xyz = sampleCosine (frameCount * (iterationNum + 1.0), normal);
 		
+		vec3 reflectedRay = mix(sampleCosine (frameCount * (iterationNum + 1.0), normal),reflect(d.xyz, normal),bestMaterial.w);
+		
+		d.xyz = reflectedRay;
 		result+= vec3(0,0,0) * contrib;
 		contrib *= bestMaterial.xyz * 3.14;//kd * pi
 		
+		//////////////////////////////////////////
+		///Light calculation
 		vec3 randomLightPoint = randomOnLightSource ();
 		vec3 shadowDir = normalize(randomLightPoint - e.xyz);
 		float lightDist = length(randomLightPoint - e.xyz);

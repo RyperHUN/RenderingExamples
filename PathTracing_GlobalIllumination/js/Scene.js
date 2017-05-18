@@ -59,7 +59,7 @@ var Scene = function(gl) {
   
   this.program.quadrics[0].set(SphereTranslated);
  this.program.quadrics[1].set(emptyClipper);
-	this.program.materials[0].set(whiteConst, whiteConst, whiteConst, 0.0);
+	this.program.materials[0].set(whiteConst, whiteConst, whiteConst, 1.0);
   this.program.quadrics[8].set(SphereTranslated2);
   this.program.quadrics[9].set(emptyClipper);
   this.program.materials[4].set(colorConst,0.0,0.0,0.0);
@@ -97,7 +97,7 @@ this.program.quadrics[7].set(
     0, 0, 0, 0,
     0, 0, 1, 0,
     0, 0, 0, -10); //sqrt(10) ben levo sik
-this.program.materials[3].set(colorConst, colorConst, colorConst, 0.0);
+this.program.materials[3].set(colorConst, colorConst, colorConst, 1.0);
 	
 this.background = new TextureCube(gl, [
     "media/posx.jpg",
