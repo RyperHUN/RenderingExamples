@@ -1,0 +1,133 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	
+	varying vec2 tex;
+	varying vec4 rayDir;
+	uniform vec3 cameraPos;
+	
+	vec4 quatMult( vec4 q1, vec4 q2 ) {
+	   vec4 r;
+
+	   r.x   = q1.x * q2.x - dot( q1.yzw, q2.yzw );
+	   r.yzw = q1.x * q2.yzw + q2.x * q1.yzw + cross( q1.yzw, q2.yzw );
+
+	   return r;
+	}
+
+	vec4 quatSq( vec4 q ) {
+	   vec4 r;
+
+	   r.x   = q.x * q.x - dot( q.yzw, q.yzw );
+	   r.yzw = 2.0 * q.x * q.yzw;
+
+	   return r;
+	}
+
+	void iterateIntersect( inout vec4 q, inout vec4 qp) {
+	   for( int i = 0; i < 10; i++ ) {
+		  qp = 2.0 * quatMult(q, qp);
+		  q = quatSq(q) + vec4(1, 0.5, -0.1, 0.4); //ZP tol fugg a kep
+
+		  if( dot( q, q ) > 7.0 ) {
+			 break;
+		  }
+	   }
+	}
+	
+	float dist(vec3 p)
+	{
+	  vec4 z = vec4( p, 0.0 );
+	  vec4 zp = vec4( 1, 0.0, 0.0, 0.0 ); 
+	  iterateIntersect( z, zp );
+	  float normZ = length( z );
+	  return 0.5 * normZ * log( normZ ) / length( zp );
+	}
+	
+	vec3 gradByHand (vec3 p)
+	{
+		vec3 gradient = vec3(
+        dist(p + vec3(+0.05, 0.0, 0.0) ) -
+        dist(p + vec3(-0.05, 0.0, 0.0) ) ,
+        dist(p + vec3(0.0, +0.05, 0.0) ) -
+        dist(p + vec3(0.0, -0.05, 0.0) ) , 
+        dist(p + vec3(0.0, 0.0, +0.05) ) -
+        dist(p + vec3(0.0, 0.0, -0.05) ) 
+        );
+		vec3 normal = normalize(gradient);
+		return normal;
+	}
+	
+	vec3 SearchBinary (vec3 p, inout bool found)
+	{
+		const float stepAmount = 0.05;
+	   vec3 d = normalize(rayDir.xyz);
+	   
+	
+		vec3 step = d * stepAmount;
+	   for (int i = 0; i < 170; i++)
+	   {
+		   float sum = dist(p);
+	      
+		   if (sum  > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		   step *= 1.02;
+	   }
+	   if (found)
+	   {
+		  for(int j=0; j<15; j++) {
+			float sum = dist(p);
+			if(sum < 0.0) 
+			  p += step;
+			else
+			  p -= step;
+			step *= 0.5;
+		  }
+	   }
+	   return p;
+	}
+	
+	vec3 SphereTrace (vec3 p, inout bool found)
+	{
+		vec3 d = normalize(rayDir.xyz);
+		
+		
+		for (int i = 0; i < 50; i++)
+		{
+			float sum = dist(p);
+			if (sum < 0.001)
+			{
+				found = true;
+				return p;
+			}
+			p = p + d * sum;
+		}
+		return p;
+	}
+	
+	void main() {
+			vec3 d = normalize(rayDir.xyz);
+
+		  vec3 p = cameraPos;
+		  
+		  bool found = false;
+		  //p =  SearchBinary (p, found);
+		  p = SphereTrace (p, found);
+		    //webgl1: konkrét lépésszám kell (pl. 150)
+			
+			//távolságfüggvény kiértékelése
+			//léptetés a távolsággal
+			//kilépés a ciklusból (break;), ha a távolság kisebb mint epszilon
+			//epszilon függhet a teljes megtett távolságtól: távolabb nagyobb hiba is oké
+			if (found)
+				gl_FragColor = vec4(gradByHand (p),1.0);
+			else
+				gl_FragColor = vec4(0.0,0.0,0.0,1.0);
+		} 
+
+	
+	
+
+`;

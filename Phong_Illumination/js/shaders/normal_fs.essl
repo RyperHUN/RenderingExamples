@@ -1,0 +1,14 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	varying vec2 tex;
+	varying vec4 normal;
+	uniform sampler2D colorTexture;
+	
+	uniform mat4 rayDirMatrix;
+	uniform mat4 eye;
+
+	void main(void) {
+		gl_FragColor = texture2D(colorTexture, tex);
+		gl_FragColor = vec4(normalize(normal.xyz), 1);
+	}
+`;

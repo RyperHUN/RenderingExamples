@@ -1,0 +1,158 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	varying vec2 tex;
+	varying vec4 wNormal4;
+	varying vec3 wPos;
+	varying vec3 viewDir;
+	uniform sampler2D colorTexture;
+	
+	uniform vec4 wLightPos;
+	uniform mat4 rayDirMatrix;
+	uniform vec3 eye;
+	
+	uniform sampler2D noiseTexture;
+	uniform samplerCube background;
+	
+	#define CirclesNum 3
+	#define MaterialsNum 3
+	uniform vec3 circleCenter[CirclesNum];
+	uniform float radiuses[MaterialsNum];
+
+	
+	float calcR (vec3 point, vec3 center, float radius)
+	{
+		return distance (point, center) / radius;
+	}
+	
+	float fGuide (float r)
+	{
+		float calculated = r*r*r*r - r*r + 0.25;
+	   if (calculated >= 0.7)
+			return 0.0;
+			
+		return calculated;
+	}
+	
+	float fBlinn (float r)
+	{
+		if (r < 0.01)
+			r = 0.01;
+		
+		return 1.0 / (r*r);
+	}
+	
+	float f(float r)
+	{
+	   //return fGuide (r);
+	   return fBlinn (r);
+	}
+	
+	vec3 gradByHand (vec3 p)
+	{
+		const float A= 0.2;
+	   vec3 CircleCenter = vec3(0.0,3.0, -23.0);
+	   float radius = 3.0;
+		
+		return vec3(
+		  f(calcR (p + vec3(+0.05, 0.0, 0.0) , CircleCenter, radius)) -
+		  f(calcR (p + vec3(-0.05, 0.0, 0.0) , CircleCenter, radius)) ,
+		  f(calcR (p + vec3(0.0, +0.05, 0.0) , CircleCenter, radius)) -
+		  f(calcR (p + vec3(0.0, -0.05, 0.0) , CircleCenter, radius)) , 
+		  f(calcR (p + vec3(0.0, 0.0, +0.05) , CircleCenter, radius)) -
+		  f(calcR (p + vec3(0.0, 0.0, -0.05) , CircleCenter, radius)) 
+	 );
+	}
+	
+	vec3 AnaliticGradHelper (vec3 p, vec3 center, float radius)
+	{
+		vec3 dist = p - center;
+		dist = dist * dist;
+		float distSum = dist.x + dist.y + dist.z;
+		distSum *= distSum;
+		
+		float x = (p.x - center.x);
+		float y = (p.y - center.y);
+		float z = (p.z - center.z);
+		vec3 normal = vec3 (x, y, z);
+		normal = normal * - 1.0 * radius * radius / distSum;
+		
+		return normal;
+	}
+	
+	vec3 AnaliticGrad (vec3 r)
+	{
+	   vec3 sum = vec3(0.0);
+	   for (int j = 0; j < CirclesNum; j++)
+			sum += AnaliticGradHelper (r, circleCenter[j], radiuses[j]);
+			
+		return sum;
+	}
+	vec3 fGrad(vec3 r) {
+		//return vec3(1,0,0);
+	  //return gradByHand (r);
+	  return AnaliticGrad (r);
+	}
+	
+	
+	vec3 SearchBinary (vec3 p, inout bool found)
+	{
+		const float stepAmount = 0.05;
+	   vec3 d = normalize(viewDir.xyz);
+	   
+	
+		vec3 step = d * stepAmount;
+		float A = 0.2;
+	   for (int i = 0; i < 170; i++)
+	   {
+		   
+	       float sum = 0.0;
+		   for (int j = 0; j < CirclesNum; j++)
+				sum += f(calcR (p, circleCenter[j], radiuses[j]));
+	      
+		   if (sum - A  > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		   step *= 1.02;
+	   }
+	   if (found)
+	   {
+		  for(int j=0; j<15; j++) {
+			float sum = 0.0;
+		    for (int j = 0; j < CirclesNum; j++)
+				sum += f(calcR (p, circleCenter[j], radiuses[j]));
+			if(sum - A < 0.0) 
+			  p += step;
+			else
+			  p -= step;
+			step *= 0.5;
+		  }
+	   }
+	   return p;
+	}
+	
+
+	void main(void) {
+	  vec3 d = normalize(viewDir.xyz);
+	  vec3 wNormal = normalize(wNormal4.xyz);
+
+	  vec3 p = eye;
+	  
+	  bool found = false;
+	  p =  SearchBinary (p, found);
+	  vec3 gradient = fGrad(p);
+      vec3 normal = normalize(gradient);
+	   vec3 radiancia;
+	   vec3 reflectDir = reflect(normalize(viewDir).xyz, normal.xyz);
+	   //reflectDir.z*= -1.0;
+	   if (found)
+			radiancia = textureCube( background,reflectDir).xyz;
+			//radiancia = normal.xyz;
+	   else
+			radiancia = textureCube( background, normalize(viewDir).xyz).xyz;
+		
+	
+	   gl_FragColor = vec4(radiancia, 1);
+	}
+`;

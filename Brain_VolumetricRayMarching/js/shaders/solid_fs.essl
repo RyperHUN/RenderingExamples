@@ -1,0 +1,24 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	varying vec2 tex;
+	varying vec4 wNormal4;
+	varying vec3 wPos;
+	varying vec4 viewDir;
+	uniform sampler2D colorTexture;
+	
+	uniform vec4 wLightPos;
+	uniform mat4 rayDirMatrix;
+	uniform vec3 eye;
+	
+	uniform samplerCube envMapTexture;
+
+	void main(void) {
+		vec3 wNormal = normalize(wNormal4.xyz);
+		
+		float cosResult = max(dot(wNormal ,viewDir.xyz), 0.0);
+		//gl_FragColor = vec4(texture2D(colorTexture, tex).xyz * cosResult, 1);
+		gl_FragColor = vec4(textureCube( envMapTexture, reflect(normalize(viewDir).xyz, wNormal )).xyz , 1);
+		//gl_FragColor += vec4(normalize(wNormal.xyz), 1) * 0.0;
+
+	}
+`;

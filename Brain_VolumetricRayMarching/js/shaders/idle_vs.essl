@@ -1,0 +1,25 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+
+	attribute vec3 vertexPosition;
+	attribute vec2 vertexTexCoord;
+	attribute vec3 vertexNormal;
+    varying vec2 tex;
+	varying vec4 wNormal4;
+	varying vec3 wPos;
+	varying vec4 viewDir;
+
+	uniform mat4 modelMatrix;
+	uniform mat4 rayDirMatrix;
+	uniform mat4 modelMatrixInverseTranspose;
+    uniform mat4 modelViewProjMatrix;
+
+	void main(void) {
+		tex = vertexTexCoord;
+		wNormal4 = vec4(vertexNormal, 1) * modelMatrixInverseTranspose;
+		vec4 wPos4 = vec4(vertexPosition, 1) * modelMatrix;
+		wPos = wPos4.xyz / wPos4.w;
+		vec4 ndcPos = vec4(vertexPosition, 1) * modelViewProjMatrix;
+		gl_Position = ndcPos;
+		viewDir = ndcPos * rayDirMatrix;
+	}
+`;

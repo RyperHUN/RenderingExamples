@@ -1,0 +1,174 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	varying vec2 tex;
+	varying vec4 wNormal4;
+	varying vec3 wPos;
+	varying vec3 viewDir;
+	uniform sampler2D colorTexture;
+	
+	uniform vec4 wLightPos;
+	uniform mat4 rayDirMatrix;
+	uniform vec3 eye;
+	
+	uniform sampler2D noiseTexture;
+
+	float betterNoise (vec3 r)
+	{
+		vec3 s = vec3(7502, 22777, 4767);
+	  float w = 0.0;
+	  for(int i=0; i<16; i++) {
+		w += sin( dot(s - vec3(32768, 32768, 32768),
+				r * 40.0) / 65536.0);
+		s = mod(s, 32768.0) * 2.0 + floor(s / 32768.0);
+	  }
+	  return w / 32.0 + 0.5 - r.y;
+
+	}
+	float f(vec3 p){
+	  //return texture2D(noiseTexture, p.xz * 0.01).r - p.y;
+	  return betterNoise (p);
+	}
+	
+	vec3 gradByHand (vec3 p)
+	{
+		return vec3(
+		  f(p + vec3(+0.05, 0.0, 0.0) ) -
+		  f(p + vec3(-0.05, 0.0, 0.0) ) ,
+		  f(p + vec3(0.0, +0.05, 0.0) ) -
+		  f(p + vec3(0.0, -0.05, 0.0) ) , 
+		  f(p + vec3(0.0, 0.0, +0.05) ) -
+		  f(p + vec3(0.0, 0.0, -0.05) ) 
+		);
+	}
+	
+	vec3 fGrad(vec3 r) {
+	  //return gradByHand (r);
+	  vec3 s = vec3(7502, 22777, 4767);
+	  vec3 f = vec3(0.0, 0.0, 0.0);
+	  for(int i=0; i<16; i++) {
+		f += cos( dot(s - vec3(32768, 32768, 32768),
+				  r*40.0) / 65536.0) 
+			 * (s - vec3(32768, 32768, 32768)) * 40.0;
+		s = mod(s, 32768.0) * 2.0 + floor(s / 32768.0);
+	  }
+	  return f / 65536.0 - vec3(0, 1, 0);
+	}
+	
+	vec3 SearchVariedLength (vec3 p,float diff, inout bool found)
+	{
+	   vec3 d = normalize(viewDir.xyz);
+	
+		vec3 step = d * min(diff/580.0, 0.05);
+	//feladat:
+	// ciklus fut 128-szor
+	// p léptetése step-pel
+	// ha elértük a felületet, break
+	
+	   for (int i = 0; i < 380; i++)
+	   {
+		   if (f(p) > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		   step *= 1.02;
+	   }
+	   return p;
+	}
+	
+	vec3 LinearSearch (vec3 p,float diff, inout bool found)
+	{
+		vec3 d = normalize(viewDir.xyz);
+	
+		const int steps = 128;
+		
+		vec3 step =
+			d * min(diff/float(steps), 0.05);
+
+		float prev = f(p);
+		for(int i = 1; i < steps; ++i){
+			if (f(p) > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		}
+		return p;
+	}
+	
+	vec3 SearchBinary (vec3 p,float diff, inout bool found)
+	{
+	   vec3 d = normalize(viewDir.xyz);
+	
+		vec3 step = d * min(diff/580.0, 0.05);
+	//feladat:
+	// ciklus fut 128-szor
+	// p léptetése step-pel
+	// ha elértük a felületet, break
+	
+	   for (int i = 0; i < 200; i++)
+	   {
+		   if (f(p) > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		   step *= 1.02;
+	   }
+	   if (found)
+	   {
+		  for(int j=0; j<10; j++) {
+			float h = f(p);
+			if(h < 0.0) 
+			  p += step;
+			else
+			  p -= step;
+			step *= 0.5;
+		  }
+	   }
+	   return p;
+	}
+	
+	uniform samplerCube background;
+
+	void main(void) {
+	  vec3 d = normalize(viewDir.xyz);
+
+	  float t1 = (1.0 - eye.y) / d.y; //2 Sik ami metszi fent lent
+	  float t2 = (0.0 - eye.y) / d.y;
+	  float tstar = max(min(t1, t2), 0.0);
+	  float tend = max(max(t1, t2), 0.0);
+	  float diff = (tend - tstar);
+
+	  vec3 wNormal = normalize(wNormal4.xyz);
+
+	  vec3 p = eye + d * tstar;
+	  bool found = false;
+	  //p = LinearSearch (p , diff, found);
+	  //p = SearchVariedLength (p, diff, found);
+	  p =  SearchBinary (p, diff, found);
+	   vec3 gradient = -fGrad(p);
+	   //gradient.y = p.y;
+		vec3 normal = normalize(gradient);
+
+	   //gl_FragColor = vec4(p.y,p.y,p.y, 1);
+	   vec3 radiancia;
+	   float s = distance(eye, p);
+	   if (found) {
+			radiancia = normal.rgb;
+	   }
+	   else {
+			radiancia = textureCube( background, normalize(viewDir).xyz).xyz;
+			s = 10000000000000.0;
+		}
+		
+		const float csillapitas = 0.3;
+		const float forras = 0.1;
+		const float e = 2.71828;
+		
+		float eAdosCucc = pow(e, -1.0 *csillapitas * s);
+		//radiancia = radiancia * ( eAdosCucc + forras * (1.0 - eAdosCucc)/ csillapitas); 
+		radiancia = radiancia * ( eAdosCucc ) + vec3(forras * (1.0 - eAdosCucc)/ csillapitas); 
+	   gl_FragColor = vec4 (radiancia, 1);
+	}
+`;

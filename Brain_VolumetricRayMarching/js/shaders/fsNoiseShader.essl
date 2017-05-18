@@ -1,0 +1,238 @@
+Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
+	precision highp float;
+	varying vec2 tex;
+	varying vec4 wNormal4;
+	varying vec3 wPos;
+	varying vec3 viewDir;
+	
+	uniform vec4 wLightPos;
+	uniform mat4 rayDirMatrix;
+	uniform vec3 eye;
+	
+	uniform sampler2D noiseTexture;
+	uniform sampler2D brainTex;
+	uniform sampler2D matcapTex;
+	uniform samplerCube background;
+	
+	uniform float z;
+	
+	#define CirclesNum 3
+	#define MaterialsNum 3
+	uniform vec3 circleCenter[CirclesNum];
+	uniform float radiuses[MaterialsNum];
+	uniform mat4 viewMtx;
+
+	struct Ray {
+
+    vec3 origin;
+    vec3 direction;
+    vec3 dir_inv;
+	};
+	Ray createRay (vec3 o, vec3 d)
+	{
+		Ray ray;
+		ray.origin = o;
+		ray.direction = d;
+		ray.dir_inv = (1.0/d);
+		return ray;
+	}
+	struct Box {
+    //bool intersect(Ray ray, float t0, float t1);
+    vec3 minn;
+	vec3 maxx;
+	};
+	Box createBox (vec3 llf, vec3 urb) {
+		Box box;
+		box.minn = llf;
+        box.maxx = urb;
+		return box;
+    }
+		
+	const float USABLEPICTURES = 208.0;
+	const float ZDiff = 1.0/USABLEPICTURES;
+	const float Step = ZDiff / 7.0;
+	int convertZIntersectToPicCoord (float z)
+	{
+		float value = z* -1.0 * USABLEPICTURES;
+		value = floor(value);
+		return int(value);
+	}
+
+	vec2 convertZtoTexCoord (float zFloat, int plusZ)
+	{
+	
+		vec2 CubeSizeUV = vec2(1.0/16.0, 1.0/16.0);
+		int z = convertZIntersectToPicCoord (zFloat) + plusZ;
+		int sor = z / 16 + 1;
+		int oszlop = z - (sor - 1 ) * 16;
+		vec2 texCoord = vec2(oszlop, sor);
+		texCoord *= CubeSizeUV;
+		return texCoord;
+	}
+	float intersection(Box b, Ray r) {
+		float t1 = (b.minn[0] - r.origin[0])*r.dir_inv[0];
+		float t2 = (b.maxx[0] - r.origin[0])*r.dir_inv[0];
+	 
+		float tmin = min(t1, t2);
+		float tmax = max(t1, t2);
+	 
+		for (int i = 1; i < 3; ++i) {
+			t1 = (b.minn[i] - r.origin[i])*r.dir_inv[i];
+			t2 = (b.maxx[i] - r.origin[i])*r.dir_inv[i];
+	 
+			tmin = max(tmin, min(t1, t2));
+			tmax = min(tmax, max(t1, t2));
+		}
+	 
+		bool intersect = tmax > max(tmin, 0.0);
+		if (intersect)
+			return tmin;
+		
+		return -1.0;
+	}
+	
+	vec3 SearchBinary (vec3 p, inout bool found)
+	{
+		const float stepAmount = 0.05;
+	   vec3 d = normalize(viewDir.xyz);
+	   
+	
+		vec3 step = d * stepAmount;
+		float A = 0.2;
+	   for (int i = 0; i < 170; i++)
+	   {
+		   
+	       float sum = 0.0;
+		  // for (int j = 0; j < CirclesNum; j++)
+		//		sum += f(calcR (p, circleCenter[j], radiuses[j]));
+	      
+		   if (sum - A  > 0.0) {
+		      found = true;
+			  break;
+		   }
+		   p += step;
+		   step *= 1.02;
+	   }
+	   if (found)
+	   {
+		  for(int j=0; j<15; j++) {
+			float sum = 0.0;
+		    //for (int j = 0; j < CirclesNum; j++)
+				//sum += f(calcR (p, circleCenter[j], radiuses[j]));
+			if(sum - A < 0.0) 
+			  p += step;
+			else
+			  p -= step;
+			step *= 0.5;
+		  }
+	   }
+	   return p;
+	}
+	
+	vec3 sample3DTexture (vec3 p, vec3 dir)
+	{
+		float direction = dot (dir, vec3(0,0,-1)); //if > 0 + 1
+		int zPlus = 1;
+		if (direction < 0.0)
+			zPlus = -1;
+		
+		vec2 CubeSizeUV = vec2(1.0/16.0, 1.0/16.0);
+		vec2 texCoord = convertZtoTexCoord (p.z, 0);
+		vec2 texCoordNext = convertZtoTexCoord (p.z, zPlus);
+		float myZ = p.z* -1.0 * USABLEPICTURES;
+		myZ = myZ - floor(myZ);
+		if (direction < 0.0)
+			myZ = 1.0 - myZ;
+	
+		p.y = (p.y - 1.0) * -1.0; //Y mostmar lefele mutat
+		p.xy *= CubeSizeUV;		  //Talalat konvertalasa UV be
+		texCoord += p.xy;
+		texCoordNext += p.xy;
+		
+		vec4 firstSample = texture2D(brainTex, texCoord);
+		vec4 secondSample = texture2D(brainTex, texCoordNext);
+		vec3 finalColor = mix (firstSample.xyz, secondSample.xyz, myZ);
+		
+		return finalColor;
+	}
+	
+	vec3 gradByHand (vec3 p, vec3 dir)
+	{
+	    float dt = 1.0/256.0;
+		vec3 gradient = vec3(
+        (sample3DTexture(p + vec3(+dt, 0.0, 0.0), dir ) - sample3DTexture(p + vec3(-dt, 0.0, 0.0), dir  ) ).x ,
+        (sample3DTexture(p + vec3(0.0, +dt, 0.0), dir  ) - sample3DTexture(p + vec3(0.0, -dt, 0.0), dir  ) ).y , 
+        (sample3DTexture(p + vec3(0.0, 0.0, +dt), dir  ) - sample3DTexture(p + vec3(0.0, 0.0, -dt), dir  ) ).z 
+        );
+
+		vec3 normal = normalize(gradient);
+		return normal;
+	}
+	
+	bool isInsideBox (vec3 p)
+	{
+		if (p.x >= 0.0 && p.x <= 1.0)
+			if (p.y >= 0.0 && p.y <= 1.0)
+				if (p.z < 0.0 && p.z >= -1.0)
+					return true;
+					
+		return false;
+	}
+
+	
+	void main(void) {
+	
+	  vec3 d = normalize(viewDir.xyz);
+	  vec3 wNormal = normalize(wNormal4.xyz);
+	  vec3 p = eye;
+	  Ray ray = createRay (p, d);
+	  Box box = createBox (vec3(0,0,0), vec3(1,1,-1));
+	  
+	  
+	  vec3 radiancia = textureCube( background, normalize(viewDir).xyz).xyz;
+	  //vec3 radiancia = vec3(0,0,0);
+		
+	  float boxIntersectT = intersection (box, ray);
+	  vec3 intersectPoint = ray.origin + ray.direction * boxIntersectT;
+	  const int divider = 1;
+	  float STEP = ZDiff / float(divider);
+	  if (boxIntersectT > 0.0) {
+	    ray.origin = intersectPoint + STEP * ray.direction;
+		for (int i = 0; i < 120; i++) {
+			vec3 texturedColor = sample3DTexture (ray.origin, ray.direction);
+			float A = 0.35;
+			if (texturedColor.x - A > 0.0)
+			{
+				  
+				  for(int j=0; j<10; j++) {
+					vec3 texturedColor = sample3DTexture (ray.origin, ray.direction);
+					float sum = texturedColor.x;
+					if(sum - A < 0.0) 
+					  ray.origin += STEP * ray.direction;
+					else
+					  ray.origin -= STEP * ray.direction;
+					STEP *= 0.5;
+				  }
+			    vec3 gradient = gradByHand(ray.origin, ray.direction);
+				vec4 grad4 = vec4(gradient, 0.0) * viewMtx ;
+				gradient = normalize(grad4.xyz);
+				gradient = (gradient + vec3(1,1,1))*0.5;
+			    vec4 matcapColor = texture2D (matcapTex, gradient.xy);
+				gl_FragColor = vec4(gradient, 1);
+				gl_FragColor = matcapColor;
+				//gl_FragColor = vec4(ray.origin,1);
+				return;
+			}
+			ray.origin += STEP * ray.direction;
+			if (!isInsideBox (ray.origin))
+			{
+				gl_FragColor = vec4(radiancia, 1);
+				return;
+			}
+		}
+		gl_FragColor = vec4(radiancia, 1);
+	  }
+	  else
+	    gl_FragColor = vec4(radiancia, 1);
+	}
+`;
