@@ -59,10 +59,10 @@ var Scene = function(gl) {
   
   this.program.quadrics[0].set(SphereTranslated);
  this.program.quadrics[1].set(emptyClipper);
-	this.program.materials[0].set(whiteConst, whiteConst, whiteConst, 0.0);
+	this.program.materials[0].set(whiteConst, whiteConst, whiteConst, 1.0);
   this.program.quadrics[8].set(SphereTranslated2);
   this.program.quadrics[9].set(emptyClipper);
-  this.program.materials[4].set(colorConst,0.0,0.0,0.0);
+  this.program.materials[4].set(colorConst,0.0,0.0,1.0);
   
 this.program.quadrics[2].set(
     1, 0, 0, 0,
@@ -74,7 +74,7 @@ this.program.quadrics[3].set(
     0, 1, 0, 0,
     0, 0, 0, 0,
     0, 0, 0, -10); //sqrt(10) ben levo sik
-this.program.materials[1].set(colorConst, colorConst, 0.0, 1.0);
+this.program.materials[1].set(colorConst, colorConst, 0.0, 0.9);
 
 this.program.quadrics[4].set(
     0, 0, 0, 0,

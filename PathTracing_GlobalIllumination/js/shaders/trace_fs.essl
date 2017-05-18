@@ -194,9 +194,16 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 		vec3 normal = getQuadricNormal(bestQuadric, hit, d);
 
 		e = hit + vec4(normal, 0.0) * 0.001; // kicsit kitol.
-		//d.xyz = reflect(d.xyz, +normal);
 		
-		vec3 reflectedRay = mix(sampleCosine (frameCount * (iterationNum + 1.0), normal),reflect(d.xyz, normal),bestMaterial.w);
+		vec3 diffuseReflectionDir = sampleCosine (frameCount * (iterationNum + 1.0), normal);
+		vec3 mirrorReflectiondir  = reflect(d.xyz, normal);
+		vec3 reflectedRay = mix(diffuseReflectionDir,mirrorReflectiondir,bestMaterial.w);
+		
+		/*vec3 reflectedRay = diffuseReflectionDir; //Colored reflection
+		if(bestMaterial.w > 0.01)
+			reflectedRay = mirrorReflectiondir;
+		*/
+		
 		
 		d.xyz = reflectedRay;
 		result+= vec3(0,0,0) * contrib;
@@ -217,7 +224,8 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 			{
 				float geometriaiFaktor = max(0.0, dot(shadowDir, normal)) * max(0.0, dot(vec3(0,-1,0),-shadowDir));
 				vec3 lightResult =  (contrib * lightEmission / (lightDist * lightDist / 2.5)) * geometriaiFaktor; // emission
-				result = mix(lightResult, result, bestMaterial.w);
+				result = lightResult * (1.0 -  bestMaterial.w);
+				//result += lightResult;
 				//contrib = vec3(0.0); // szorozva felulet reflektanciaval
 				///TODO Ha ezt belerakom csunya kep
 			}
