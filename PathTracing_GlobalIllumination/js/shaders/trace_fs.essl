@@ -73,17 +73,17 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 	{
 		return random(vec3(12.9898, 78.233, 151.7182), seed);
 	}
-	float getRandomX()
+	float getRandomX(float seed)
 	{
-		return random(vec3(12.9898, 78.233, 151.7182), frameCount);
+		return random(vec3(12.9898, 78.233, 151.7182), seed);
 	}
-	float getRandomY()
+	float getRandomY(float seed)
 	{
-		return random(vec3(63.7264, 10.873, 623.6736), frameCount) * 20.0;
+		return random(vec3(63.7264, 10.873, 623.6736), seed) * 20.0;
 	}
 	vec3 sampleCosine(float seed, vec3 normal) {
-		float u = getRandomX();
-		float v = getRandomY();
+		float u = getRandomX(seed);
+		float v = getRandomY(seed);
 		float r = sqrt(u);
 		float angle = 6.283185307179586 * v * 20.0;
 		// compute basis from normal
@@ -97,7 +97,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
    }
    vec3 randomOnLightSource ()
    {
-	   vec2 randomPoint = vec2(getRandomX (), getRandomY ());
+	   vec2 randomPoint = vec2(getRandomX (frameCount), getRandomY (frameCount));
 	   randomPoint = mod(randomPoint, 2.0);
 	   randomPoint = randomPoint - vec2(1.0);
 	   randomPoint = randomPoint * scale;
@@ -193,7 +193,7 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 
 		e = hit + vec4(normal, 0.0) * 0.001; // kicsit kitol.
 		//d.xyz = reflect(d.xyz, +normal);
-		d.xyz = sampleCosine (frameCount, normal);
+		d.xyz = sampleCosine (frameCount * (iterationNum + 1.0), normal);
 		
 		result+= vec3(0,0,0) * contrib;
 		contrib *= bestMaterial.xyz * 3.14;//kd * pi
