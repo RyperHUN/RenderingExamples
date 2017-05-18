@@ -204,20 +204,23 @@ Shader.source[document.currentScript.src.split('js/shaders/')[1]] = `
 		
 		//////////////////////////////////////////
 		///Light calculation
-		vec3 randomLightPoint = randomOnLightSource ();
-		vec3 shadowDir = normalize(randomLightPoint - e.xyz);
-		float lightDist = length(randomLightPoint - e.xyz);
-		vec4 shadowDir4 = vec4(shadowDir, 0.0);
-		bool isHit = false;
-		float t = intersectLight (e.xyz, shadowDir, contrib, isHit); // light T
-		float quadricT = intersectQuadric (e, shadowDir4, bestQuadric, bestMaterial);
-		vec3 shadowNormal = getQuadricNormal (bestQuadric, e + shadowDir4*quadricT, shadowDir4);
-		if (isHit && t <= lightDist && quadricT > t)
 		{
-			float geometriaiFaktor = max(0.0, dot(shadowDir, normal)) * max(0.0, dot(vec3(0,-1,0),-shadowDir));
-			result += (contrib * lightEmission / (lightDist * lightDist / 2.5)) * geometriaiFaktor; // emission
-			//contrib = vec3(0.0); // szorozva felulet reflektanciaval
-			///TODO Ha ezt belerakom csunya kep
+			vec3 randomLightPoint = randomOnLightSource ();
+			vec3 shadowDir = normalize(randomLightPoint - e.xyz);
+			float lightDist = length(randomLightPoint - e.xyz);
+			vec4 shadowDir4 = vec4(shadowDir, 0.0);
+			bool isHit = false;
+			float t = intersectLight (e.xyz, shadowDir, contrib, isHit); // light T
+			float quadricT = intersectQuadric (e, shadowDir4, bestQuadric, bestMaterial);
+			vec3 shadowNormal = getQuadricNormal (bestQuadric, e + shadowDir4*quadricT, shadowDir4);
+			if (isHit && t <= lightDist && quadricT > t)
+			{
+				float geometriaiFaktor = max(0.0, dot(shadowDir, normal)) * max(0.0, dot(vec3(0,-1,0),-shadowDir));
+				vec3 lightResult =  (contrib * lightEmission / (lightDist * lightDist / 2.5)) * geometriaiFaktor; // emission
+				result = mix(lightResult, result, bestMaterial.w);
+				//contrib = vec3(0.0); // szorozva felulet reflektanciaval
+				///TODO Ha ezt belerakom csunya kep
+			}
 		}
 		return result;
 	}

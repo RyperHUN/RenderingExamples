@@ -51,7 +51,7 @@ var Scene = function(gl) {
    var emptyClipper = new Mat4;
    emptyClipper.set(0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0);
 								  					  
-  var SphereTranslated = quadricMatrix (new Mat4().translate(-1.1,1.0,0.0).scale(0.7,0.7,0.7), SphereMatrix);
+  var SphereTranslated = quadricMatrix (new Mat4().translate(-1.1,1.0,0.7).scale(0.7,0.7,0.7), SphereMatrix);
   var SphereTranslated2 = quadricMatrix (new Mat4().translate(1.1,1.0,0.0).scale(0.7,0.7,0.7), SphereMatrix);
   
   var colorConst = 0.3;
